@@ -1,0 +1,43 @@
+.services {
+  .container {
+    display: flex;
+    flex-direction: column;
+    padding: 50px 0; 
+  }
+
+  h1 {
+    color: white;
+    text-align: center;
+  }
+
+  .services__cards {
+    margin-top: 100px;
+    display: flex;
+    flex-direction: column;
+    gap: 40px;
+  }
+
+  .services__cards__grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 40px;
+  }
+
+  .services__cards__grid__card,
+  .services__cards__card {
+    display: flex;
+    text-align: center;
+    color: white;
+    flex-direction: column;
+    gap: 30px;
+    padding: 40px;
+    border-radius: 15px;
+    background-color: #111418;
+    box-shadow: 0px 10px 20px 0px rgba(255, 255, 255, 0.25);
+
+    a {
+      display: block;
+      margin: 0 auto;
+    }
+  }
+}

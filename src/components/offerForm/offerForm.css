@@ -1,0 +1,56 @@
+.offerForm {
+    .container {
+        display: flex;
+        align-items: start;
+        justify-content: space-between;
+        color: white;
+        padding: 50px 0;
+    }
+
+    .offerForm__form {
+        display: flex;
+        flex-direction: column;
+        align-items: start;
+        gap: 20px;
+        max-width: 560px;
+
+        input {
+            border-radius: 25px;
+            background-color: #808080;
+            height: 40px;
+            padding: 10px;
+            width: 100%;
+            border: none;
+        }
+
+        input:focus {
+            outline: none;
+        }
+
+        .redBtn {
+            font-size: 15px;
+        }
+    }
+
+    .offerForm__contacts {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+
+        h1 {
+            text-align: right;
+        }
+        
+        .offerForm__contacts__contact {
+            font-size: 20px;
+            text-decoration: none;
+            color: white;
+            transition: color .3s;
+            text-align: right;
+        }
+        
+        a:hover {
+            color: blueviolet;
+        }
+    }
+}
