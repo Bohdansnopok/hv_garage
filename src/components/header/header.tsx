@@ -5,6 +5,30 @@ import instagram from "../../../public/instagram.svg";
 import "./header.css";
 
 export default function Header() {
+  const handleScroll = (e: React.MouseEvent<HTMLAnchorElement>, id: string) => {
+    e.preventDefault();
+
+    const element = document.getElementById(id);
+    if (element) {
+      const offset = 80;
+      const bodyRect = document.body.getBoundingClientRect().top;
+      const elementRect = element.getBoundingClientRect().top;
+      const elementPosition = elementRect - bodyRect;
+      const offsetPosition = elementPosition - offset;
+
+      window.scrollTo({
+        top: offsetPosition,
+        behavior: "smooth",
+      });
+    }
+  };
+
+  const navItems = [
+    {name: "Про нас", id: "aboutUs"},
+    {name: "Послуги", id: "services"},
+    {name: "Контакти", id: "contacts"},
+  ]
+
   return (
     <header className="header">
       <div className="container">
@@ -16,15 +40,11 @@ export default function Header() {
           className="header__logo"
         />
         <div className="header__navs">
-          <a href="" className="header__nav">
-            Про нас
+          {navItems.map((navItems) => (
+<a key={navItems.id} href={`#${navItems.id}`} className="header__nav">
+            {navItems.name}
           </a>
-          <a href="" className="header__nav">
-            Послуги
-          </a>
-          <a href="" className="header__nav">
-            Контакти
-          </a>
+          ))}
         </div>
 
         <div className="header__socials">

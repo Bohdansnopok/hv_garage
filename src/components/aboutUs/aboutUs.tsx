@@ -2,7 +2,7 @@ import './aboutUs.css'
 
 export default function AboutUs() {
   return (
-    <section className="aboutUs">
+    <section id='aboutUs' className="aboutUs">
       <div className="container">
         <h1>HV_Garage — Експертна інженерія вашого автомобіля</h1>
         <p className="aboutUs__desc">
