@@ -139,6 +139,9 @@
 .catalog-pagination button{min-height:44px;gap:8px;}
 .catalog-pagination button span{font-size:16px;}
 .detail-buy .button{min-height:56px;}
+.product-detail .detail-buy .order-help{margin-top:14px;font-size:12px;color:#aeb3a8;}
+.product-detail .detail-buy .order-copy-status{min-height:0;margin-top:8px;color:var(--acid);font-size:12px;}
+.order-copy-fallback{width:100%;min-height:76px;margin-top:10px;padding:12px;border:1px solid #50564e;background:#111514;color:#f5f6f1;font:13px/1.5 Manrope,Arial,sans-serif;resize:vertical;}
 .service-card>a{border-radius:1px;}
 .category-grid button,.catalog-sidebar button,.chips button,.filter-button,.catalog-pagination button{transition:background-color .18s ease,color .18s ease,border-color .18s ease;}
 .catalog-sidebar button.selected,.catalog-sidebar button:hover{border-radius:1px;}
