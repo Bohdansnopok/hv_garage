@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 
+const BASE = "https://torssen.com";
+
 function clean(value: string) {
-  return value.replace(/<script[\s\S]*?<\/script>/gi, " ").replace(/<style[\s\S]*?<\/style>/gi, " ").replace(/<[^>]*>/g, " ").replace(/&nbsp;|&#160;/g, " ").replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/\s+/g, " ").trim();
+  return value.replace(/<script[\s\S]*?<\/script>/gi, " ").replace(/<style[\s\S]*?<\/style>/gi, " ").replace(/<[^>]*>/g, " ").replace(/&nbsp;|&#160;/g, " ").replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/\btorssen\b/gi, "").replace(/\s+/g, " ").trim();
 }
 
 function numeric(value: string | undefined) {
@@ -13,8 +15,8 @@ function numeric(value: string | undefined) {
 export async function GET(request: Request) {
   const source = new URL(request.url).searchParams.get("url");
   let target: URL;
-  try { target = new URL(source ?? ""); } catch { return NextResponse.json({ error: "Некоректне посилання" }, { status: 400 }); }
-  if (target.hostname !== "torssen.com" || target.protocol !== "https:") return NextResponse.json({ error: "Дозволені лише товари torssen.com" }, { status: 400 });
+  try { target = new URL(source ?? "", BASE); } catch { return NextResponse.json({ error: "Некоректне посилання" }, { status: 400 }); }
+  if (target.hostname !== "torssen.com" || target.protocol !== "https:" || !target.pathname.startsWith("/")) return NextResponse.json({ error: "Некоректне посилання на товар" }, { status: 400 });
   try {
     const response = await fetch(target, { headers: { "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36", "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8", "accept-language": "uk-UA,uk;q=0.9,en-US;q=0.8", "referer": "https://torssen.com/" }, next: { revalidate: 3600 } });
     if (!response.ok) return NextResponse.json({ error: "Не вдалося отримати товар" }, { status: 502 });
@@ -23,7 +25,7 @@ export async function GET(request: Request) {
       .map(([, raw]) => { try { return JSON.parse(raw); } catch { return null; } })
       .flatMap((value) => Array.isArray(value) ? value : [value])
       .find((value) => value?.["@type"] === "Product") ?? {};
-    const title = clean(html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i)?.[1] ?? jsonLd.name ?? html.match(/property=["']og:title["']\s+content=["']([^"']+)/i)?.[1] ?? "Товар Torssen");
+    const title = clean(html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i)?.[1] ?? jsonLd.name ?? html.match(/property=["']og:title["']\s+content=["']([^"']+)/i)?.[1] ?? "Товар");
     const image = html.match(/class=["'][^"']*us-product-slide[^"']*["'][\s\S]*?<img[^>]+src=["']([^"']+)/i)?.[1] ?? (typeof jsonLd.image === "string" ? jsonLd.image : jsonLd.image?.[0]) ?? html.match(/property=["']og:image["']\s+content=["']([^"']+)/i)?.[1] ?? "";
     const descriptionBlock = html.match(/class=["'][^"']*spl--product-expo-description[^"']*["'][^>]*>([\s\S]*?)<\/div>/i)?.[1] ?? "";
     const specs = [...html.matchAll(/<div[^>]*class=["'][^"']*us-product-attr-item[^"']*["'][^>]*>([\s\S]*?)<\/div>/gi)]
@@ -36,13 +38,12 @@ export async function GET(request: Request) {
     const offer = Array.isArray(jsonLd.offers) ? jsonLd.offers[0] : jsonLd.offers;
     return NextResponse.json({
       title,
-      image: image.startsWith("/") ? `https://torssen.com${image}` : image,
+      image: `/api/image?path=${encodeURIComponent(new URL(image, BASE).pathname)}`,
       description: clean(descriptionBlock).slice(0, 12000) || clean(jsonLd.description ?? ""),
       specs: uniqueSpecs,
       price: numeric(offer?.price) ?? numeric(currentPriceText),
       oldPrice: numeric(oldPriceText),
       available: /InStock/i.test(offer?.availability ?? "") || /Є в наявності|В наявності/i.test(clean(html.match(/class=["'][^"']*us-product-info-item-stock[^"']*["'][^>]*>([\s\S]*?)<\/li>/i)?.[1] ?? "")),
-      url: target.href,
-    }, { headers: { "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400" } });
-  } catch { return NextResponse.json({ error: "Помилка з’єднання з Torssen" }, { status: 502 }); }
+  }, { headers: { "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400" } });
+  } catch { return NextResponse.json({ error: "Тимчасова помилка завантаження товару" }, { status: 502 }); }
 }

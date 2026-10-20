@@ -30,9 +30,9 @@ function parseProducts(html: string, category: (typeof CATEGORIES)[number]) {
   const starts = [...html.matchAll(/<div\b[^>]*class=["'][^"']*\bproduct-layout\b[^"']*["'][^>]*>/gi)].map((match) => match.index ?? 0);
   const cards = starts.map((start, index) => html.slice(start, starts[index + 1] ?? html.length));
   const seen = new Set<string>();
-  const products = cards.map((card, index) => {
+  const products = cards.map((card) => {
     const nameTag = card.match(/<[^>]+itemprop=["']name["'][^>]*>([\s\S]*?)<\/(?:span|div|a|h\d)>/i);
-    const name = decode(nameTag?.[1] ?? "");
+    const name = decode(nameTag?.[1] ?? "").replace(/\btorssen\b/gi, "").replace(/\s{2,}/g, " ").trim();
     const productLink = card.match(/<a\b[^>]*itemprop=["']url["'][^>]*href=["']([^"']+)["']/i) ?? card.match(/<a\b[^>]*href=["'](https?:\/\/torssen\.com\/(?!image\/)[^"']+)["'][^>]*>/i);
     const href = productLink?.[1] ?? "";
     if (!name || !href) return null;
@@ -42,7 +42,7 @@ function parseProducts(html: string, category: (typeof CATEGORIES)[number]) {
     const pathParts = parsedUrl.pathname.split("/").filter(Boolean);
     const isProductUrl = parsedUrl.searchParams.has("product_id") || pathParts.length >= 2 && pathParts.at(-1)!.length >= 12;
     if (parsedUrl.hostname !== "torssen.com" || !isProductUrl || /\/(?:page-\d+|limit-\d+|sort-[^/]+)\/?$/i.test(parsedUrl.pathname) || parsedUrl.pathname === category.path) return null;
-    const canonical = `${parsedUrl.origin}${parsedUrl.pathname}`;
+    const canonical = parsedUrl.pathname;
     if (seen.has(canonical)) return null;
     seen.add(canonical);
     const plainCard = decode(card);
@@ -57,22 +57,20 @@ function parseProducts(html: string, category: (typeof CATEGORIES)[number]) {
     // Only accept real product cards. Category/footer links can appear in widgets
     // elsewhere in the document and have no product price or product image.
     if (!price || !normalizedPath.includes("torssen.com/image/") || !/itemprop=["']name["']/i.test(nameTag?.[0] ?? "")) return null;
-    const brand = name.match(/\b(TORSSEN|MTX(?:\s+Audio)?|GEERMAX|LEDERO|PRIME-X|STEELMATE|TEYES)\b/i)?.[1];
+    const brand = name.match(/\b(MTX(?:\s+Audio)?|GEERMAX|LEDERO|PRIME-X|STEELMATE|TEYES)\b/i)?.[1];
     const cartText = decode(card.match(/class=["'][^"']*us-module-cart-btn[^"']*["'][^>]*>([\s\S]*?)<\/a>/i)?.[1] ?? "");
     return {
       id: canonical,
       name,
-      brand: brand ? brand.toLocaleLowerCase("uk") === "mtx" ? "MTX Audio" : brand[0].toUpperCase() + brand.slice(1).toLowerCase() : "Torssen",
+      brand: brand ? /^mtx/i.test(brand) ? "MTX Audio" : brand.toUpperCase() : "Автотовари",
       category: category.title,
       tag: category.tag,
       price,
       oldPrice,
       available: /до кошика/i.test(cartText) || /class=["'][^"']*us-no-stock/i.test(card) === false && !/немає у наявності|немає в наявності|out of stock/i.test(plainCard),
-      image: normalizedPath,
-      url: productUrl,
+      image: `/api/image?path=${encodeURIComponent(new URL(normalizedPath).pathname)}`,
+      url: parsedUrl.pathname,
       mark: name.match(/\b(\d{1,3}(?:\.\d)?(?:K|\s?мм)?|4K|AHD|DSP|LED)\b/i)?.[1] ?? "AUTO",
-      source: "torssen.com",
-      sourceIndex: index,
     };
   }).filter((product): product is NonNullable<typeof product> => Boolean(product));
   return products;
@@ -90,16 +88,16 @@ export async function GET(request: Request) {
     const path = validSubcategory || category.path;
     if (page === 1) {
       const response = await fetch(`${BASE}${path}`, { headers: SOURCE_HEADERS, next: { revalidate: 3600 } });
-      if (!response.ok) throw new Error(`Torssen returned ${response.status} for ${path}`);
+      if (!response.ok) throw new Error(`Catalog request failed (${response.status})`);
       return parseProducts(await response.text(), category);
     }
     const response = await fetch(`${BASE}${path}/page-${page}`, { headers: SOURCE_HEADERS, next: { revalidate: 3600 } });
-    if (!response.ok) throw new Error(`Torssen returned ${response.status} for page ${page}`);
+    if (!response.ok) throw new Error(`Catalog request failed (${response.status})`);
     return parseProducts(await response.text(), category);
   }));
   const products = results.flatMap((result) => result.status === "fulfilled" ? result.value : []);
-  const failedCategories = results.flatMap((result, index) => result.status === "rejected" ? [{ tag: chosen[index].tag, reason: result.reason instanceof Error ? result.reason.message : String(result.reason) }] : []);
+  const failedCategories = results.flatMap((result, index) => result.status === "rejected" ? [{ tag: chosen[index].tag, reason: "Тимчасово недоступно" }] : []);
   const emptyCategories = results.flatMap((result, index) => result.status === "fulfilled" && result.value.length === 0 ? [chosen[index].tag] : []);
-  if (failedCategories.length) console.error("Torssen catalog request failed", failedCategories);
-  return NextResponse.json({ categories: CATEGORIES, products, page, pageSize: 24, source: "torssen.com", updatedAt: new Date().toISOString(), failedCategories, emptyCategories }, { headers: { "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400" } });
+  if (failedCategories.length) console.error("Catalog request failed", failedCategories);
+  return NextResponse.json({ categories: CATEGORIES, products, page, pageSize: 24, updatedAt: new Date().toISOString(), failedCategories, emptyCategories }, { headers: { "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400" } });
 }
